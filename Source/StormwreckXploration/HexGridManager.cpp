@@ -5,6 +5,7 @@
 #include "Engine/Engine.h"
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AHexGridManager::AHexGridManager()
@@ -27,7 +28,7 @@ void AHexGridManager::BeginPlay()
             LogTemp,
             Warning,
             TEXT("HexGridManager could not find player pawn")
-        )
+        );
     }
 	
 }
@@ -66,6 +67,11 @@ void AHexGridManager::Tick(float DeltaTime)
                 Message
             );
         }
+    }
+
+    if (bShowDebugGrid)
+    {
+        DrawDebugGrid();
     }
 }
 
@@ -127,5 +133,120 @@ FHexCoordinate AHexGridManager::RoundAxial(
     Result.R = RoundedZ;
 
     return Result;
+}
+
+FVector AHexGridManager::HexToWorld(
+    const FHexCoordinate& Hex) const
+{
+    const float SqrtThree = FMath::Sqrt(3.0f);
+
+    const float X =
+        HexSize * SqrtThree *
+        (static_cast<float>(Hex.Q)
+            + static_cast<float>(Hex.R) / 2.0f);
+
+    const float Y =
+        HexSize * 1.5f *
+        static_cast<float>(Hex.R);
+
+    return GetActorLocation() + FVector(X, Y, 0.0f);
+}
+
+void AHexGridManager::DrawDebugHex(
+    const FHexCoordinate& Hex,
+    const FColor& Color) const
+{
+    const bool bIsHighlighted = Color == FColor::Yellow;
+
+    // O hex selecionado fica ligeiramente acima para evitar z-fighting.
+    const float HighlightHeightOffset =
+        bIsHighlighted ? 2.0f : 0.0f;
+
+    const FVector Center =
+        HexToWorld(Hex)
+        + FVector(
+            0.0f,
+            0.0f,
+            DebugLineHeight + HighlightHeightOffset
+        );
+
+    constexpr int32 CornerCount = 6;
+
+    FVector Corners[CornerCount];
+
+    for (int32 Index = 0; Index < CornerCount; ++Index)
+    {
+        const float AngleDegrees =
+            60.0f * static_cast<float>(Index) + 30.0f;
+
+        const float AngleRadians =
+            FMath::DegreesToRadians(AngleDegrees);
+
+        Corners[Index] = Center + FVector(
+            HexSize * FMath::Cos(AngleRadians),
+            HexSize * FMath::Sin(AngleRadians),
+            0.0f
+        );
+    }
+
+    const float LineThickness =
+        bIsHighlighted ? 8.0f : 5.0f;
+
+    for (int32 Index = 0; Index < CornerCount; ++Index)
+    {
+        const int32 NextIndex =
+            (Index + 1) % CornerCount;
+
+        DrawDebugLine(
+            GetWorld(),
+            Corners[Index],
+            Corners[NextIndex],
+            Color,
+            false,
+            0.0f,
+            0,
+            LineThickness
+        );
+    }
+}
+
+void AHexGridManager::DrawDebugGrid() const
+{
+    // Primeira etapa: desenha a grade normal.
+    for (int32 Q = -DebugGridRadius;
+        Q <= DebugGridRadius;
+        ++Q)
+    {
+        const int32 MinimumR = FMath::Max(
+            -DebugGridRadius,
+            -Q - DebugGridRadius
+        );
+
+        const int32 MaximumR = FMath::Min(
+            DebugGridRadius,
+            -Q + DebugGridRadius
+        );
+
+        for (int32 R = MinimumR; R <= MaximumR; ++R)
+        {
+            FHexCoordinate Hex;
+            Hex.Q = Q;
+            Hex.R = R;
+
+            // O hex atual será desenhado separadamente.
+            if (bHasCurrentHex && Hex == CurrentHex)
+            {
+                continue;
+            }
+
+            DrawDebugHex(Hex, FColor::Cyan);
+        }
+    }
+
+    // Segunda etapa: desenha o hex atual por último.
+    if (bHasCurrentHex)
+    {
+        DrawDebugHex(CurrentHex, FColor::Yellow);
+    }
 }
 

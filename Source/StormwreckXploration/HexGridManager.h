@@ -45,6 +45,9 @@ public:
     UFUNCTION(BlueprintPure, Category = "Hex Grid")
     FHexCoordinate WorldToHex(const FVector& WorldLocation) const;
 
+    UFUNCTION(BlueprintPure, Category = "Hex Grid")
+    FVector HexToWorld(const FHexCoordinate& Hex) const;
+
 protected:
     UPROPERTY(
         EditAnywhere,
@@ -61,6 +64,28 @@ protected:
     )
     FHexCoordinate CurrentHex;
 
+    UPROPERTY(
+        EditAnywhere,
+        BlueprintReadOnly,
+        Category = "Hex Grid|Debug"
+    )
+    bool bShowDebugGrid = true;
+
+    UPROPERTY(
+        EditAnywhere,
+        BlueprintReadOnly,
+        Category = "Hex Grid|Debug",
+        meta = (ClampMin = "0", ClampMax = "20")
+    )
+    int32 DebugGridRadius = 1;
+
+    UPROPERTY(
+        EditAnywhere,
+        BlueprintReadOnly,
+        Category = "Hex Grid|Debug"
+    )
+    float DebugLineHeight = 10.0f;
+
 private:
     FHexCoordinate RoundAxial(float Q, float R) const;
 
@@ -68,5 +93,12 @@ private:
     TObjectPtr<APawn> TrackedPawn;
 
     bool bHasCurrentHex = false;
+
+    void DrawDebugGrid() const;
+
+    void DrawDebugHex(
+        const FHexCoordinate& Hex,
+        const FColor& Color
+    ) const;
 
 };
