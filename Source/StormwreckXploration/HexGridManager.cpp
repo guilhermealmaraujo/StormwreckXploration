@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "StormwreckGameInstance.h"
 
 // Sets default values
 AHexGridManager::AHexGridManager()
@@ -18,19 +19,83 @@ AHexGridManager::AHexGridManager()
 // Called when the game starts or when spawned
 void AHexGridManager::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
 
     TrackedPawn = UGameplayStatics::GetPlayerPawn(this, 0);
 
-    if (!TrackedPawn) 
+    if (!TrackedPawn)
     {
         UE_LOG(
             LogTemp,
             Warning,
             TEXT("HexGridManager could not find player pawn")
         );
+
+        return;
     }
-	
+
+    UStormwreckGameInstance* GameInstance =
+        Cast<UStormwreckGameInstance>(GetGameInstance());
+
+    if (!GameInstance)
+    {
+        UE_LOG(
+            LogTemp,
+            Warning,
+            TEXT("HexGridManager could not find StormwreckGameInstance")
+        );
+
+        return;
+    }
+
+    int32 SavedQ = 0;
+    int32 SavedR = 0;
+
+    if (GameInstance->GetTravelPosition(SavedQ, SavedR))
+    {
+        FHexCoordinate SpawnHex;
+        SpawnHex.Q = SavedQ;
+        SpawnHex.R = SavedR;
+
+        FVector SpawnLocation = HexToWorld(SpawnHex);
+
+        // Conserva a altura atual do personagem.
+        SpawnLocation.Z = TrackedPawn->GetActorLocation().Z;
+
+        TrackedPawn->SetActorLocation(
+            SpawnLocation,
+            false,
+            nullptr,
+            ETeleportType::TeleportPhysics
+        );
+
+        CurrentHex = SpawnHex;
+        bHasCurrentHex = true;
+
+        UE_LOG(
+            LogTemp,
+            Log,
+            TEXT("Player positioned at travel hex | Q: %d | R: %d"),
+            SavedQ,
+            SavedR
+        );
+
+        if (GEngine)
+        {
+            const FString Message = FString::Printf(
+                TEXT("Player positioned at Hex | Q: %d | R: %d"),
+                SavedQ,
+                SavedR
+            );
+
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                5.0f,
+                FColor::Green,
+                Message
+            );
+        }
+    }
 }
 
 // Called every frame
